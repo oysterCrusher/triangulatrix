@@ -120,63 +120,66 @@
         return edges;
     }
 
-    /* Adds the given vertex to the set of triangles by first removing triangles where the new vertex is
-     * within its circumcircle, noting the edges that are removed. Then new triangles based on the now exposed
-     * edges and the new vertex are added to replace those that were removed.
-     * Returns the updated list of triangles. */
-    function addVertex(vertex, triangles) {
-        var edges = [];
-
-        // If vertex is in a triangles circumcircle, remove the triangle
-        // and add its edges to the edges list
-        for (var i = triangles.length; i--;) {
-            if (triangles[i].isInCircumcircle(vertex)) {
-                edges.push(new Edge(triangles[i].vertices[0], triangles[i].vertices[1]));
-                edges.push(new Edge(triangles[i].vertices[0], triangles[i].vertices[2]));
-                edges.push(new Edge(triangles[i].vertices[1], triangles[i].vertices[2]));
-                triangles.splice(i, 1);
-            }
-        }
-
-        // Remove duplicate entries in edges
-        edges = removeDuplicateEdges(edges);
-
-        // For all the edges left create a new triangle using the two edge vertices and the new vertex
-        for (i = 0; i < edges.length; i++) {
-            triangles.push(new Triangle(vertex, edges[i].vertices[0], edges[i].vertices[1]));
-        }
-
-        return triangles;
-    }
-
     /* Generates a set of triangles that cover a rectangle of width by height through Incremental Delaunay
      * triangulation. */
     function generate(width, height, nVertices) {
-        var randomVertex;
+        var triangleBuffer = generateSuperTriangles(width, height);
 
-        var triangles = generateSuperTriangles(width, height);
+        var triangles = [];
+        var vertices = [];
+        var edges = [];
 
-        // TODO Generate vertices list, sort it, then add each vertex. Allows optimization explained
-        // here : http://www.codeguru.com/cpp/cpp/algorithms/general/article.php/c8901/Delaunay-Triangles.htm
-        // Add the requested number of randomly placed vertices
-        for (var i = 0; i < nVertices; i++) {
-            randomVertex = new Vertex(Math.floor(Math.random() * width), Math.floor(Math.random() * height));
-            triangles = addVertex(randomVertex, triangles);
-        }
-
-        // What comes next depends on how we want the image borders to look.
+        // Generate the requested number of vertices
         // Add some vertices to the edges of the canvas to make the coverage around the border more
         // consistent with the rest of the image.
-        for (i = 0; i < Math.floor(Math.sqrt(nVertices) - 1); i++) {
-            randomVertex = new Vertex(Math.floor(Math.random() * width), 0);
-            triangles = addVertex(randomVertex, triangles);
-            randomVertex = new Vertex(Math.floor(Math.random() * width), height - 1);
-            triangles = addVertex(randomVertex, triangles);
-            randomVertex = new Vertex(0, Math.floor(Math.random() * height));
-            triangles = addVertex(randomVertex, triangles);
-            randomVertex = new Vertex(width - 1, Math.floor(Math.random() * height));
-            triangles = addVertex(randomVertex, triangles);
+        for (var i = 0; i < Math.floor(Math.sqrt(nVertices) - 1); i++) {
+            vertices.push(new Vertex(Math.floor(Math.random() * width), 0));
+            vertices.push(new Vertex(Math.floor(Math.random() * width), height - 1));
+            vertices.push(new Vertex(0, Math.floor(Math.random() * height)));
+            vertices.push(new Vertex(width - 1, Math.floor(Math.random() * height)));
         }
+        for (i = 0; i < nVertices; i++) {
+            vertices.push(new Vertex(Math.floor(Math.random() * width), Math.floor(Math.random() * height)));
+        }
+
+        // TODO Check for, and do something about, duplicate vertices.
+
+        // Sort vertices by ascending x value
+        vertices.sort(function(v1, v2) {
+            return v1.x - v2.x;
+        });
+
+        for (i = 0; i < vertices.length; i++) {
+            edges = [];
+            for (var j = triangleBuffer.length; j--;) {
+                if (vertices[i].x > triangleBuffer[j].circumcenter.x + triangleBuffer[j].circumradius) {
+                    // If vertex.x is past the range of the triangles circumcircle, move the triangle over to the
+                    // triangles array and remove it from this triangleBuffer array. It's done.
+                    triangles.push(triangleBuffer[j]);
+                    triangleBuffer.splice(j, 1);
+                } else {
+                    // If vertex is in a triangles circumcircle, remove the triangle
+                    // and add its edges to the edges list
+                    if (triangleBuffer[j].isInCircumcircle(vertices[i])) {
+                        edges.push(new Edge(triangleBuffer[j].vertices[0], triangleBuffer[j].vertices[1]));
+                        edges.push(new Edge(triangleBuffer[j].vertices[0], triangleBuffer[j].vertices[2]));
+                        edges.push(new Edge(triangleBuffer[j].vertices[1], triangleBuffer[j].vertices[2]));
+                        triangleBuffer.splice(j, 1);
+                    }
+                }
+            }
+
+            // Remove duplicate entries in edges
+            edges = removeDuplicateEdges(edges);
+
+            // For all the edges left create a new triangle using the two edge vertices and the new vertex
+            for (j = 0; j < edges.length; j++) {
+                triangleBuffer.push(new Triangle(vertices[i], edges[j].vertices[0], edges[j].vertices[1]));
+            }
+        }
+
+        // Add the remaining triangles from the triangleBuffer to the triangle array
+        triangles = triangles.concat(triangleBuffer);
 
         // Remove triangles that contain vertices from the superTriangles
 //        for (i = triangles.length; i--; ) {
