@@ -1,0 +1,299 @@
+<!DOCTYPE html>
+<html>
+<head lang="en">
+    <meta charset="UTF-8">
+    <title>Triangulatrix</title>
+    <script src="triangulatrix.js"></script>
+    <style>
+        body, canvas {
+            margin: 0;
+            /*border: 0;*/
+            font-family: "Arial", sans-serif;
+            /*font-size: 16px;*/
+        }
+        canvas {
+            position: absolute;
+            left: 0;
+            top: 0;
+            z-index: -1;
+        }
+        input {
+            margin: 10px 0;
+        }
+        #controls {
+            margin: 2% auto;
+            background-color: rgba(255,255,255,0.8);
+            text-align: center;
+            width: 300px;
+            border: 5px solid rgba(0,0,0,0.6);
+        }
+        .button {
+            margin: 10px;
+        }
+    </style>
+</head>
+<body>
+<!--TODO Show some instructions/help-->
+<div id="controls">
+    <!--Color 1-->
+    <label for="color1">Color 1 : </label>
+    <input id='color1' type="color" value="#ff0000" onchange="controlPanel.updateColor(1, value)">
+    <br>
+    <!--Color 2-->
+    <label for="color2">Color 2 : </label>
+    <input id='color2' type="color" value="#ff0000" onchange="controlPanel.updateColor(2, value)">
+    <br>
+    <!--nVertices-->
+    <label for="nVertices">Number of Vertices : </label>
+    <input id="nVertices" type="number" width="5" value="128" min="1" max="50000" onchange="controlPanel.updateNVertices(value)">
+    <br>
+    <!--Toggle mesh-->
+    <label for="showMesh">Show mesh : </label>
+    <input id="showMesh" type="checkbox" value="1" onchange="controlPanel.updateShowMesh(checked)">
+    <br>
+    <!--Dimensions-->
+    <label for="width">Width (px) : </label>
+    <input id="width" type="number" value="100" min="1" max="10000" onchange="controlPanel.updateWidth(value)">
+    <br>
+    <label for="height">Height (px) : </label>
+    <input id="height" type="number" value="100" min="1" max="10000" onchange="controlPanel.updateHeight(value)">
+    <br>
+    <!--Reset dimensions-->
+    <input type="button" value='Reset dimensions' onclick="controlPanel.resetDimensions()">
+    <br>
+    <!--Generate-->
+    <input class="button" type="button" value='Generate' onclick="controlPanel.generate()">
+    <!--Randomize-->
+    <input class="button" type="button" value="Random" onclick="controlPanel.randomize()">
+</div>
+
+<script>
+/* Some color utility functions.
+ * Thanks stackoverflow. */
+(function() {
+
+    /**
+     * From http://stackoverflow.com/questions/2353211/hsl-to-rgb-color-conversion (20/09/2014)
+     * Converts an HSL color value to RGB. Conversion formula
+     * adapted from http://en.wikipedia.org/wiki/HSL_color_space.
+     * Assumes h, s, and l are contained in the set [0, 1] and
+     * returns r, g, and b in the set [0, 255].
+     *
+     * @param   h       The hue
+     * @param   s       The saturation
+     * @param   l       The lightness
+     * @return  Array   The RGB representation
+     */
+    function hslToRgb(h, s, l){
+        var r, g, b;
+
+        if(s == 0){
+            r = g = b = l; // achromatic
+        }else{
+            function hue2rgb(p, q, t){
+                if(t < 0) t += 1;
+                if(t > 1) t -= 1;
+                if(t < 1/6) return p + (q - p) * 6 * t;
+                if(t < 1/2) return q;
+                if(t < 2/3) return p + (q - p) * (2/3 - t) * 6;
+                return p;
+            }
+
+            var q = l < 0.5 ? l * (1 + s) : l + s - l * s;
+            var p = 2 * l - q;
+            r = hue2rgb(p, q, h + 1/3);
+            g = hue2rgb(p, q, h);
+            b = hue2rgb(p, q, h - 1/3);
+        }
+
+        return [Math.round(r * 255), Math.round(g * 255), Math.round(b * 255)];
+    }
+
+    /**
+     * From http://stackoverflow.com/questions/2353211/hsl-to-rgb-color-conversion (20/09/2014)
+     * Converts an RGB color value to HSL. Conversion formula
+     * adapted from http://en.wikipedia.org/wiki/HSL_color_space.
+     * Assumes r, g, and b are contained in the set [0, 255] and
+     * returns h, s, and l in the set [0, 1].
+     * *
+     * @param   r       The red color value
+     * @param   g       The green color value
+     * @param   b       The blue color value
+     * @return  Array   The HSL representation
+     */
+    function rgbToHsl(r, g, b){
+        r /= 255;
+        g /= 255;
+        b /= 255;
+        var max = Math.max(r, g, b), min = Math.min(r, g, b);
+        var h, s, l = (max + min) / 2;
+
+        if(max == min){
+            h = s = 0; // achromatic
+        }else{
+            var d = max - min;
+            s = l > 0.5 ? d / (2 - max - min) : d / (max + min);
+            switch(max){
+                case r: h = (g - b) / d + (g < b ? 6 : 0); break;
+                case g: h = (b - r) / d + 2; break;
+                case b: h = (r - g) / d + 4; break;
+            }
+            h /= 6;
+        }
+
+        return [h * 360, s * 100, l * 100];
+    }
+
+    window.colorUtils = {
+        hslToRgb : hslToRgb,
+        rgbToHsl : rgbToHsl
+    }
+
+})();
+
+(function() {
+
+    // Grab all the html elements
+    var controls = document.getElementById('controls');
+    var color1Selector = document.getElementById('color1');
+    var color2Selector = document.getElementById('color2');
+    var nVerticesSelector = document.getElementById('nVertices');
+    var widthSelector = document.getElementById('width');
+    var heightSelector = document.getElementById('height');
+
+    // Generate the canvas
+    var canvas = document.createElement('canvas');
+    canvas.width = window.innerWidth;
+    canvas.height = window.innerHeight;
+    document.body.appendChild(canvas);
+
+    widthSelector.value = canvas.width;
+    heightSelector.value = canvas.height;
+
+    // Create the options object
+    var opts = {
+        nVertices : 128,
+        h1 : 0,
+        s1 : 0,
+        l1 : 0,
+        h2 : 0,
+        s2 : 0,
+        l2 : 0,
+        mesh : false,
+        width : window.innerWidth,
+        height : window.innerHeight
+    };
+
+    // Stop clicks on the options div element from going on to fire the body.onclick event
+    controls.onclick = function(event) {
+        event.stopPropagation();
+    };
+
+    // Toggle the visibility of the controls div element when clicked
+    document.body.onclick = function() {
+        controls.style.visibility = controls.style.visibility === 'hidden' ? 'visible' : 'hidden';
+    };
+
+    randomize();
+
+    // Produce a random set of options (within sensible limits)
+    function randomize() {
+        opts.h1 = Math.floor(Math.random() * 360);
+        opts.s1 = Math.floor(Math.random() * 100);
+        opts.l1 = Math.floor(Math.random() * 100);
+
+        opts.h2 = Math.floor(Math.random() * 360);
+        opts.s2 = Math.floor(Math.random() * 100);
+        opts.l2 = Math.floor(Math.random() * 100);
+
+        // TODO Pull these into a separate function in the colorUtils
+        var rgb = colorUtils.hslToRgb(opts.h1 / 360, opts.s1 / 100, opts.l1 / 100);
+        for (var i = 0; i < 3; i++) {
+            rgb[i] = rgb[i].toString(16);
+            if (rgb[i].length === 1) {
+                rgb[i] = '0' + rgb[i];
+            }
+        }
+        var hex = '#' + rgb[0] + rgb[1] + rgb[2];
+        color1Selector.value = hex;
+
+        rgb = colorUtils.hslToRgb(opts.h2 / 360, opts.s2 / 100, opts.l2 / 100);
+        for (i = 0; i < 3; i++) {
+            rgb[i] = rgb[i].toString(16);
+            if (rgb[i].length === 1) {
+                rgb[i] = '0' + rgb[i];
+            }
+        }
+        hex = '#' + rgb[0] + rgb[1] + rgb[2];
+        color2Selector.value = hex;
+
+        opts.nVertices = 50 + Math.floor(Math.random() * 950);
+        nVerticesSelector.value = opts.nVertices;
+
+        generate();
+    }
+
+    function updateColor(n, newColor) {
+        var rHexString = newColor.substr(1, 2);
+        var gHexString = newColor.substr(3, 2);
+        var bHexString = newColor.substr(5, 2);
+        var rHex = parseInt(rHexString, 16);
+        var gHex = parseInt(gHexString, 16);
+        var bHex = parseInt(bHexString, 16);
+        var hslArray = colorUtils.rgbToHsl(rHex, gHex, bHex);
+        if (n === 1) {
+            opts.h1 = Math.round(hslArray[0]);
+            opts.s1 = Math.round(hslArray[1]);
+            opts.l1 = Math.round(hslArray[2]);
+        } else {
+            opts.h2 = Math.round(hslArray[0]);
+            opts.s2 = Math.round(hslArray[1]);
+            opts.l2 = Math.round(hslArray[2]);
+        }
+    }
+
+    function updateNVertices(n) {
+        opts.nVertices = parseInt(n, 10);
+    }
+
+    function updateShowMesh(value) {
+        opts.mesh = value;
+    }
+
+    function updateWidth(value) {
+        opts.width = parseInt(value, 10);
+    }
+
+    function updateHeight(value) {
+        opts.height = parseInt(value, 10);
+    }
+
+    function resetDimensions() {
+        opts.width = window.innerWidth;
+        opts.height = window.innerHeight;
+        widthSelector.value = opts.width;
+        heightSelector.value = opts.height;
+    }
+
+    function generate() {
+        console.time("generate");
+        triangulatrix.drawRandom(canvas, opts);
+        console.timeEnd("generate");
+    }
+
+    window.controlPanel = {
+        updateColor : updateColor,
+        updateNVertices : updateNVertices,
+        updateShowMesh : updateShowMesh,
+        updateWidth : updateWidth,
+        updateHeight : updateHeight,
+        resetDimensions : resetDimensions,
+        generate : generate,
+        randomize : randomize
+    };
+
+})();
+</script>
+
+</body>
+</html>

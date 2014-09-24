@@ -1,0 +1,101 @@
+<!DOCTYPE html>
+<html>
+<head lang="en">
+    <meta charset="UTF-8">
+    <title>Triangulatrix</title>
+    <script src="triangulatrix.js"></script>
+    <style>
+        body {
+            margin: 0;
+            border: 0;
+            font-family: "Arial", sans-serif;
+        }
+        canvas {
+            display: block;
+            margin: 0 auto;
+            max-width: 100%;
+            max-height: 100%;
+        }
+        #controls {
+            position: absolute;
+            padding: 10px 0;
+            left: 0;
+            top: 0;
+            background-color: rgba(240,240,240,0.8);
+            text-align: center;
+            width: 100%;
+        }
+        .button {
+            margin: 0 20px;
+        }
+    </style>
+</head>
+<body>
+<!--TODO Show some instructions/help-->
+<div id="controls">
+    <!--nVertices-->
+    <label for="nVertices">Number of Vertices : </label>
+    <input id="nVertices" type="number" width="5" value="128" min="1" max="50000" onchange="controlPanel.updateNVertices(value)">
+    <!--Generate-->
+    <input class="button" type="button" value='Generate' onclick="controlPanel.generate()">
+</div>
+
+<script>
+    (function() {
+        // Grab html elements
+        var controls = document.getElementById('controls');
+        var nVerticesSelector = document.getElementById('nVertices');
+
+        // Set up the canvas
+        var canvas = document.createElement('canvas');
+        canvas.width = 10;
+        canvas.height = 10;
+        document.body.appendChild(canvas);
+
+        // Create options object
+        var opts = {
+            nVertices : 100
+        };
+
+        function updateNVertices(n) {
+            opts.nVertices = parseInt(n, 10);
+        }
+
+        function randomize() {
+            opts.nVertices = 50 + Math.floor(Math.random() * 950);
+            nVerticesSelector.value = opts.nVertices;
+        }
+
+        function generate() {
+            console.time('generateImage');
+            canvas = triangulatrix.drawImage(image, canvas, opts);
+            console.timeEnd('generateImage');
+        }
+
+        randomize();
+
+        var image = new Image();
+        image.onload = function() {
+            canvas.width = image.width;
+            canvas.height = image.height;
+            onResize();
+            var ctx = canvas.getContext('2d');
+            ctx.drawImage(image, 0, 0);
+            generate();
+        };
+        image.src = 'sample.png';
+
+        function onResize() {
+            canvas.style.paddingTop = '' + ((window.innerHeight - canvas.height) / 2) + 'px';
+        }
+
+        window.addEventListener('resize', onResize, false);
+
+        window.controlPanel = {
+            updateNVertices : updateNVertices,
+            generate : generate
+        }
+    })();
+</script>
+</body>
+</html>
