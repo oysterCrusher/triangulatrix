@@ -144,9 +144,32 @@
         return [h * 360, s * 100, l * 100];
     }
 
+    function hslToHex(h, s, l) {
+        var rgb = hslToRgb(h / 360, s / 100, l / 100);
+        for (var i = 0; i < 3; i++) {
+            rgb[i] = rgb[i].toString(16);
+            if (rgb[i].length === 1) {
+                rgb[i] = '0' + rgb[i];
+            }
+        }
+        return '#' + rgb[0] + rgb[1] + rgb[2];
+    }
+
+    function hexToHsl(hex) {
+        var rHexString = hex.substr(1, 2);
+        var gHexString = hex.substr(3, 2);
+        var bHexString = hex.substr(5, 2);
+        var rHex = parseInt(rHexString, 16);
+        var gHex = parseInt(gHexString, 16);
+        var bHex = parseInt(bHexString, 16);
+        return rgbToHsl(rHex, gHex, bHex);
+    }
+
     window.colorUtils = {
         hslToRgb : hslToRgb,
-        rgbToHsl : rgbToHsl
+        rgbToHsl : rgbToHsl,
+        hslToHex : hslToHex,
+        hexToHsl : hexToHsl
     }
 
 })();
@@ -206,26 +229,8 @@
         opts.s2 = Math.floor(Math.random() * 100);
         opts.l2 = Math.floor(Math.random() * 100);
 
-        // TODO Pull these into a separate function in the colorUtils
-        var rgb = colorUtils.hslToRgb(opts.h1 / 360, opts.s1 / 100, opts.l1 / 100);
-        for (var i = 0; i < 3; i++) {
-            rgb[i] = rgb[i].toString(16);
-            if (rgb[i].length === 1) {
-                rgb[i] = '0' + rgb[i];
-            }
-        }
-        var hex = '#' + rgb[0] + rgb[1] + rgb[2];
-        color1Selector.value = hex;
-
-        rgb = colorUtils.hslToRgb(opts.h2 / 360, opts.s2 / 100, opts.l2 / 100);
-        for (i = 0; i < 3; i++) {
-            rgb[i] = rgb[i].toString(16);
-            if (rgb[i].length === 1) {
-                rgb[i] = '0' + rgb[i];
-            }
-        }
-        hex = '#' + rgb[0] + rgb[1] + rgb[2];
-        color2Selector.value = hex;
+        color1Selector.value = colorUtils.hslToHex(opts.h1, opts.s1, opts.l1);
+        color2Selector.value = colorUtils.hslToHex(opts.h2, opts.s2, opts.l2);
 
         opts.nVertices = 50 + Math.floor(Math.random() * 950);
         nVerticesSelector.value = opts.nVertices;
@@ -234,21 +239,15 @@
     }
 
     function updateColor(n, newColor) {
-        var rHexString = newColor.substr(1, 2);
-        var gHexString = newColor.substr(3, 2);
-        var bHexString = newColor.substr(5, 2);
-        var rHex = parseInt(rHexString, 16);
-        var gHex = parseInt(gHexString, 16);
-        var bHex = parseInt(bHexString, 16);
-        var hslArray = colorUtils.rgbToHsl(rHex, gHex, bHex);
+        var hsl = colorUtils.hexToHsl(newColor);
         if (n === 1) {
-            opts.h1 = Math.round(hslArray[0]);
-            opts.s1 = Math.round(hslArray[1]);
-            opts.l1 = Math.round(hslArray[2]);
+            opts.h1 = Math.round(hsl[0]);
+            opts.s1 = Math.round(hsl[1]);
+            opts.l1 = Math.round(hsl[2]);
         } else {
-            opts.h2 = Math.round(hslArray[0]);
-            opts.s2 = Math.round(hslArray[1]);
-            opts.l2 = Math.round(hslArray[2]);
+            opts.h2 = Math.round(hsl[0]);
+            opts.s2 = Math.round(hsl[1]);
+            opts.l2 = Math.round(hsl[2]);
         }
     }
 
