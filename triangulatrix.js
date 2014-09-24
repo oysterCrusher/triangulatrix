@@ -142,12 +142,22 @@
             vertices.push(new Vertex(Math.floor(Math.random() * width), Math.floor(Math.random() * height)));
         }
 
-        // TODO Check for, and do something about, duplicate vertices.
-
-        // Sort vertices by ascending x value
+        // Sort vertices by ascending x value, and secondarily by ascending y value
         vertices.sort(function(v1, v2) {
-            return v1.x - v2.x;
+            if (v1.x !== v2.x) {
+                return v1.x - v2.x;
+            } else {
+                return v1.y - v2.y;
+            }
         });
+
+        // Remove duplicates from vertices array. Only a small fraction of the total number should be duplicates,
+        // so lets just assume the number is insignificant and it's its not worth replacing them.
+        for (i = vertices.length - 1; i--; ) {
+            if (vertices[i+1].x === vertices[i].x && vertices[i+1].y === vertices[i].y) {
+                vertices.splice(i+1, 1);
+            }
+        }
 
         for (i = 0; i < vertices.length; i++) {
             edges = [];
