@@ -33,6 +33,10 @@
 <body>
 <!--TODO Show some instructions/help-->
 <div id="controls">
+    <input type="file" id="imageFile" onchange="controlPanel.loadFile(this.files[0])"/>
+    or drag and drop an image file into the window.
+    <br>
+    <br>
     <!--nVertices-->
     <label for="nVertices">Number of Vertices : </label>
     <input id="nVertices" type="number" width="5" value="128" min="1" max="50000" onchange="controlPanel.updateNVertices(value)">
@@ -59,6 +63,20 @@
 
         function updateNVertices(n) {
             opts.nVertices = parseInt(n, 10);
+        }
+
+        function loadFile(file) {
+            if (file === null) {
+                return;
+            }
+
+            if (file.type.match(/image.*/)) {
+                var reader = new FileReader();
+                reader.onload = (function(newImageFile) {
+                    image.src = newImageFile.target.result;
+                });
+                reader.readAsDataURL(file);
+            }
         }
 
         function randomize() {
@@ -89,10 +107,28 @@
             canvas.style.paddingTop = '' + ((window.innerHeight - canvas.height) / 2) + 'px';
         }
 
+        function onDragOver(evt) {
+            evt.preventDefault();
+            evt.stopPropagation();
+        }
+
+        function onDrop(evt) {
+            evt.preventDefault();
+            evt.stopPropagation();
+            var files = evt.dataTransfer.files;
+            if (files.length === 0) {
+                return;
+            }
+            loadFile(files[0]);
+        }
+
         window.addEventListener('resize', onResize, false);
+        document.body.addEventListener('dragover', onDragOver, false);
+        document.body.addEventListener('drop', onDrop, false);
 
         window.controlPanel = {
             updateNVertices : updateNVertices,
+            loadFile : loadFile,
             generate : generate
         }
     })();
