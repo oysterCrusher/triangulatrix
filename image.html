@@ -11,10 +11,14 @@
             font-family: "Arial", sans-serif;
         }
         canvas {
-            display: block;
-            margin: 0 auto;
-            max-width: 100%;
-            max-height: 100%;
+            position: absolute;
+            left: 0;
+            top: 0;
+            z-index: -1;
+            /*display: block;*/
+            /*margin: 0 auto;*/
+            /*max-width: 100%;*/
+            /*max-height: 100%;*/
         }
         #controls {
             position: absolute;
@@ -55,6 +59,8 @@
         canvas.width = 10;
         canvas.height = 10;
         document.body.appendChild(canvas);
+
+        var scale = 1;
 
         // Create options object
         var opts = {
@@ -104,7 +110,20 @@
         image.src = 'sample.png';
 
         function onResize() {
-            canvas.style.paddingTop = '' + ((window.innerHeight - canvas.height) / 2) + 'px';
+            // If the image is larger than the window, scale it down to fit
+            var newWidth = canvas.width;
+            var newHeight = canvas.height;
+            scale = Math.min(window.innerWidth / canvas.width, window.innerHeight / canvas.height);
+            if (scale < 1) {
+                newWidth = canvas.width * scale;
+                newHeight = canvas.height * scale;
+            } else {
+                scale = 1;
+            }
+            canvas.style.width = newWidth + 'px';
+            canvas.style.height = newHeight + 'px';
+            canvas.style.left = Math.floor((window.innerWidth - newWidth) * 0.5) + 'px';
+            canvas.style.top = Math.floor((window.innerHeight- newHeight) * 0.5) + 'px';
         }
 
         function onDragOver(evt) {
@@ -122,9 +141,15 @@
             loadFile(files[0]);
         }
 
+        function onCanvasClick(evt) {
+            console.log('' + Math.floor((evt.clientX - evt.target.getBoundingClientRect().left) / scale));
+            console.log('' + Math.floor((evt.clientY - evt.target.getBoundingClientRect().top) / scale));
+        }
+
         window.addEventListener('resize', onResize, false);
         document.body.addEventListener('dragover', onDragOver, false);
         document.body.addEventListener('drop', onDrop, false);
+        canvas.addEventListener('click', onCanvasClick, false);
 
         window.controlPanel = {
             updateNVertices : updateNVertices,
